@@ -10,6 +10,20 @@ export const getAllDatabases = async (_: Request, res: Response) => {
   }
 };
 
+export const getDatabaseById = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const database = await databaseService.getDatabaseById(id);
+    if (!database) {
+      res.status(404).json({ message: 'Database not found' });
+      return;
+    }
+    res.json(database);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching database', error });
+  }
+};
+
 export const uploadDatabase = async (req: Request, res: Response) => {
   try {
     const file = req.file;

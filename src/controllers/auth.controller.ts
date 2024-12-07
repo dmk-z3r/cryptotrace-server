@@ -4,6 +4,7 @@ import bcrypt from 'bcrypt';
 import { UserModel } from '../models/user.model';
 import * as authService from '../services/user.service';
 import logger from '../utils/logger';
+import { JWTRequest } from 'src/middlewares/jwt';
 
 export const login = async (req: Request, res: Response) => {
   try {
@@ -65,6 +66,18 @@ export const approveRejectAccessRequest = async (req: Request, res: Response) =>
     return;
   } catch (error) {
     logger.error(`Error updating access request: ${error}`);
+    res.status(500).json({ message: 'Internal server error' });
+    return;
+  }
+};
+
+export const getUser = async (req: JWTRequest, res: Response) => {
+  try {
+    const user = await authService.findUserByEmail(req.user.email);
+    res.json(user);
+    return;
+  } catch (error) {
+    logger.error(`Error fetching user: ${error}`);
     res.status(500).json({ message: 'Internal server error' });
     return;
   }

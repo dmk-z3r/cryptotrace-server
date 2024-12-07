@@ -6,6 +6,7 @@ const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
 router.get('/', databaseController.getAllDatabases);
+router.get('/:id', databaseController.getDatabaseById);
 router.post('/', upload.single('file'), databaseController.uploadDatabase);
 router.delete('/:id', databaseController.deleteDatabase);
 

@@ -6,6 +6,10 @@ export const getAllDatabases = async (): Promise<IDatabase[]> => {
   return await Database.find().select('-data');
 };
 
+export const getDatabaseById = async (id: string): Promise<IDatabase | null> => {
+  return await Database.findById(id);
+};
+
 export const uploadDatabase = async (file: any): Promise<IDatabase> => {
   let data: any[];
 

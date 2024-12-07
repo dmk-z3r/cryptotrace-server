@@ -5,7 +5,7 @@ import { AccessRequest, User } from '../types/user.type';
 import logger from '..//utils/logger';
 import bcrypt from 'bcrypt';
 export const findUserByEmail = async (email: string) => {
-  return await UserModel.findOne({ email });
+  return await UserModel.findOne({ email }).select('-password, -__v');
 };
 
 const createUser = async (userData: User) => {
