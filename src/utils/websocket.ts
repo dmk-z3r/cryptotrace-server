@@ -2,7 +2,7 @@ import { Server } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import logger from './logger';
 import { alchemy } from './alchemy';
-import { AlchemySubscription } from 'alchemy-sdk';
+import { AlchemySubscription, Utils } from 'alchemy-sdk';
 import { Transaction } from '../types/transaction.type';
 
 export function setupWebSocket(server: Server) {
@@ -49,7 +49,7 @@ export function setupWebSocket(server: Server) {
             blockId: tx.transaction.blockNumber,
             from: tx.transaction.from,
             to: tx.transaction.to,
-            amount: parseInt(tx.transaction.value, 16),
+            amount: parseFloat(Utils.formatUnits(tx.transaction.value, 'ether')),
             timestamp: Date.now()
           };
 
@@ -58,8 +58,11 @@ export function setupWebSocket(server: Server) {
             transactionQueue = [];
           }
 
-          transactionQueue.push(transaction);
-          sendTransactions();
+
+          if (transaction.amount >= 0.1) {
+            transactionQueue.push(transaction);
+            sendTransactions();
+          }
         },
       );
       subscriptionActive = true;
