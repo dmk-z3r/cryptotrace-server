@@ -28,8 +28,8 @@ export const login = async (req: Request, res: Response) => {
       { expiresIn: '10h' }
     );
 
-    const ipAddress = req.headers['x-forwarded-for'] || req.ip || 'unknown';
-    authService.sendLoginAlert(user, ipAddress[0]);
+    const ipAddress = (Array.isArray(req.headers['x-forwarded-for']) ? req.headers['x-forwarded-for'][0] : req.headers['x-forwarded-for']) || req.ip || 'unknown';
+    authService.sendLoginAlert(user, ipAddress);
 
     res.json({ token });
     return;

@@ -48,3 +48,18 @@ export const deleteDatabase = async (req: Request, res: Response) => {
   }
 };
 
+export const updateDatabaseStatus = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    const database = await databaseService.updateDatabaseStatus(id, status);
+    if (!database) {
+      res.status(404).json({ message: 'Database not found' });
+      return;
+    }
+    res.json(database);
+  } catch (error) {
+    res.status(500).json({ message: 'Error updating database status', error });
+  }
+};
+

@@ -9,5 +9,6 @@ router.get('/', databaseController.getAllDatabases);
 router.get('/:id', databaseController.getDatabaseById);
 router.post('/', upload.single('file'), databaseController.uploadDatabase);
 router.delete('/:id', databaseController.deleteDatabase);
+router.patch('/:id/status', databaseController.updateDatabaseStatus);
 
 export default router;

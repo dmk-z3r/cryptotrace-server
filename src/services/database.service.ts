@@ -1,6 +1,7 @@
 import Database, { IDatabase } from '../models/database.model';
 import csv from 'csv-parser';
 import { Readable } from 'stream';
+import { Severity, AddressData } from '../models/database.model';
 
 export const getAllDatabases = async (): Promise<IDatabase[]> => {
   return await Database.find().select('-data');
@@ -20,6 +21,18 @@ export const uploadDatabase = async (file: any): Promise<IDatabase> => {
   } else {
     throw new Error('Unsupported file type');
   }
+
+  data = data.map((record: any): AddressData => {
+    if (!record.address) {
+      throw new Error('Address is required');
+    }
+  
+    return {
+      address: record.address,
+      remarks: record.remarks || file.originalname,
+      severity: record.severity || Severity.Low
+    };
+  });
 
   const newDatabase = new Database({
     name: file.originalname,
@@ -45,3 +58,6 @@ const parseCSV = (buffer: Buffer): Promise<any[]> => {
   });
 };
 
+export const updateDatabaseStatus = async (id: string, status: string): Promise<IDatabase | null> => {
+  return await Database.findByIdAndUpdate(id, { status: status==='Active' ? 'Active' : 'Inactive' }, { new: true });
+}

@@ -3,6 +3,6 @@ export interface Database {
   name: string;
   records: number;
   lastUpdated: string;
-  status: 'Active' | 'Pending Review';
+  status: 'Active' | 'Inactive';
   data: any;
 }

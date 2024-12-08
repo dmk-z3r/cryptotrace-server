@@ -1,4 +1,4 @@
-import mongoose, { Schema } from 'mongoose';
+import mongoose, { Schema, Document } from 'mongoose';
 import { AccessRequest } from '../types/user.type';
 
 interface ApplicationDocument extends AccessRequest, Document {}

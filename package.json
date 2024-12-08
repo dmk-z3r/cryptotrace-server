@@ -37,6 +37,7 @@
   "license": "MIT",
   "private": false,
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.1",
     "alchemy-sdk": "^3.5.0",
     "async-retry": "^1.3.3",
     "axios": "^1.7.9",
