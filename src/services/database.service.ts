@@ -61,3 +61,8 @@ const parseCSV = (buffer: Buffer): Promise<any[]> => {
 export const updateDatabaseStatus = async (id: string, status: string): Promise<IDatabase | null> => {
   return await Database.findByIdAndUpdate(id, { status: status==='Active' ? 'Active' : 'Inactive' }, { new: true });
 }
+
+export const getAllActiveDatabasesAddresses = async (): Promise<AddressData[]> => {
+  const databases = await Database.find({ status: 'Active' }).select('data');
+  return databases.flatMap(database => database.data);
+}

@@ -4,6 +4,20 @@ import logger from './logger';
 import { alchemy } from './alchemy';
 import { AlchemySubscription, Utils } from 'alchemy-sdk';
 import { Transaction } from '../types/transaction.type';
+import { AddressData } from '../models/database.model';
+import { getAllActiveDatabasesAddresses } from '../services/database.service';
+import { createAlert } from '../services/alert.service';
+
+let addressToCheck: AddressData[] = []
+
+function isAlert(transaction: Transaction): [boolean, AddressData | null] {
+  for (let i = 0; i < addressToCheck.length; i++) {
+    if (transaction.from === addressToCheck[i].address || transaction.to === addressToCheck[i].address) {
+      return [true, addressToCheck[i]];
+    }
+  }
+  return [false, null];
+}
 
 export function setupWebSocket(server: Server) {
   const wss = new WebSocketServer({
@@ -29,6 +43,20 @@ export function setupWebSocket(server: Server) {
 
       const transaction = transactionQueue.shift();
       if (transaction) {
+        const [isAlertTransaction, addressData] = isAlert(transaction);
+        if (isAlertTransaction && addressData) {
+          logger.info(`Transaction involving ${addressData.remarks} detected`);
+          createAlert({
+            id: Math.floor(Math.random() * 10000),
+            type: addressData.severity,
+            description: `Transaction involving ${addressData.remarks} detected`,
+            amount: transaction.amount,
+            currency: 'ETH',
+            timestamp: new Date(transaction.timestamp).toISOString(),
+            status: 'New',
+            hash: transaction.id,
+          });
+        }
         wss.clients.forEach((client) => {
           client.send(JSON.stringify(transaction));
         });
@@ -36,9 +64,10 @@ export function setupWebSocket(server: Server) {
     }, 1000);
   }
 
-  function subscribeToAlchemy() {
+  async function subscribeToAlchemy() {
     if (!subscriptionActive) {
       logger.info('Subscribing to Alchemy');
+      addressToCheck = await getAllActiveDatabasesAddresses()
       alchemy.ws.on(
         {
           method: AlchemySubscription.MINED_TRANSACTIONS,
