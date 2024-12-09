@@ -7,6 +7,7 @@ import { Transaction } from '../types/transaction.type';
 import { AddressData } from '../models/database.model';
 import { getAllActiveDatabasesAddresses } from '../services/database.service';
 import { createAlert } from '../services/alert.service';
+import { sendEmail } from './email';
 
 let addressToCheck: AddressData[] = []
 
@@ -56,6 +57,11 @@ export function setupWebSocket(server: Server) {
             status: 'New',
             hash: transaction.id,
           });
+          sendEmail(
+            process.env.ADMIN_EMAIL!,
+            'Alert: Suspicious Transaction Detected',
+            `Transaction involving ${addressData.remarks} detected. Amount: ${transaction.amount} ETH. Hash: ${transaction.id}`,
+          );
         }
         wss.clients.forEach((client) => {
           client.send(JSON.stringify(transaction));
@@ -73,6 +79,7 @@ export function setupWebSocket(server: Server) {
           method: AlchemySubscription.MINED_TRANSACTIONS,
         },
         (tx) => {
+          logger.info('New transaction mined');
           const transaction: Transaction = {
             id: tx.transaction.hash,
             blockId: tx.transaction.blockNumber,

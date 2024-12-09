@@ -73,7 +73,6 @@ export const predict = async (address: string): Promise<any> => {
 
 async function analyzeAddress(address: string): Promise<PredictData> {
     try {
-        // Initialize data structure
         const analysis: PredictData = {
             Address: address,
             Avg_min_between_received_tnx: 0,
@@ -108,7 +107,6 @@ async function analyzeAddress(address: string): Promise<PredictData> {
             ERC20_most_rec_token_type: null
         };
 
-        // Get normal transactions with metadata
         const [sentTxs, receivedTxs] = await Promise.all([
             alchemy.core.getAssetTransfers({
                 fromAddress: address,
@@ -122,7 +120,6 @@ async function analyzeAddress(address: string): Promise<PredictData> {
             })
         ]);
 
-        // Get ERC20 transactions with metadata
         const [sentERC20Txs, receivedERC20Txs] = await Promise.all([
             alchemy.core.getAssetTransfers({
                 fromAddress: address,
@@ -136,7 +133,6 @@ async function analyzeAddress(address: string): Promise<PredictData> {
             })
         ]);
 
-        // Process normal transactions
         if (sentTxs.transfers.length > 0) {
             const sentValues = sentTxs.transfers.map(tx => Number(tx.value || 0));
             analysis.Sent_tnx = sentTxs.transfers.length;
@@ -145,7 +141,6 @@ async function analyzeAddress(address: string): Promise<PredictData> {
             analysis.avg_val_sent = sentValues.reduce((a, b) => a + b, 0) / sentValues.length;
             analysis.total_Ether_sent = sentValues.reduce((a, b) => a + b, 0);
 
-            // Calculate average time between sent transactions
             const sentTimes = sentTxs.transfers
                 .filter(tx => tx.metadata.blockTimestamp)
                 .map(tx => new Date(tx.metadata.blockTimestamp!).getTime());
@@ -158,7 +153,6 @@ async function analyzeAddress(address: string): Promise<PredictData> {
             }
         }
 
-        // Process received transactions
         if (receivedTxs.transfers.length > 0) {
             const receivedValues = receivedTxs.transfers.map(tx => Number(tx.value || 0));
             analysis.Received_Tnx = receivedTxs.transfers.length;
@@ -167,7 +161,6 @@ async function analyzeAddress(address: string): Promise<PredictData> {
             analysis.avg_val_received = receivedValues.reduce((a, b) => a + b, 0) / receivedValues.length;
             analysis.total_ether_received = receivedValues.reduce((a, b) => a + b, 0);
 
-            // Calculate average time between received transactions
             const receivedTimes = receivedTxs.transfers
                 .filter(tx => tx.metadata.blockTimestamp)
                 .map(tx => new Date(tx.metadata.blockTimestamp!).getTime());
@@ -180,23 +173,19 @@ async function analyzeAddress(address: string): Promise<PredictData> {
             }
         }
 
-        // Process ERC20 transactions
         if (sentERC20Txs.transfers.length > 0 || receivedERC20Txs.transfers.length > 0) {
             analysis.Total_ERC20_tnxs = sentERC20Txs.transfers.length + receivedERC20Txs.transfers.length;
             
-            // Process sent ERC20 transactions
             const sentTokens = new Set(sentERC20Txs.transfers.map(tx => tx.asset));
             const sentAddresses = new Set(sentERC20Txs.transfers.map(tx => tx.to));
             analysis.ERC20_uniq_sent_token_name = sentTokens.size;
             analysis.ERC20_uniq_sent_addr = sentAddresses.size;
             
-            // Process received ERC20 transactions
             const receivedTokens = new Set(receivedERC20Txs.transfers.map(tx => tx.asset));
             const receivedAddresses = new Set(receivedERC20Txs.transfers.map(tx => tx.from));
             analysis.ERC20_uniq_rec_token_name = receivedTokens.size;
             analysis.ERC20_uniq_rec_addr = receivedAddresses.size;
 
-            // Find most common tokens
             const tokenCount = new Map<string, number>();
             sentERC20Txs.transfers.forEach(tx => {
                 if (tx.asset) {
@@ -207,7 +196,6 @@ async function analyzeAddress(address: string): Promise<PredictData> {
                 .sort((a, b) => b[1] - a[1])[0]?.[0] || null;
         }
 
-        // Get contract creation transactions
         const contractTxs = await alchemy.core.getAssetTransfers({
             fromAddress: address,
             category: [AssetTransfersCategory.EXTERNAL],
@@ -219,17 +207,14 @@ async function analyzeAddress(address: string): Promise<PredictData> {
             .filter(tx => !tx.to)
             .length;
 
-        // Calculate total transactions
         analysis.total_transactions_including_tnx_to_create_contract = 
             analysis.Sent_tnx + 
             analysis.Received_Tnx + 
             analysis.Number_of_Created_Contracts;
 
-        // Get current balance
         const balance = await alchemy.core.getBalance(address);
         analysis.total_ether_balance = Number(balance) / 1e18;
 
-        // Calculate time difference between first and last transaction
         const allTxTimes = [...sentTxs.transfers, ...receivedTxs.transfers]
             .filter(tx => tx.metadata.blockTimestamp)
             .map(tx => new Date(tx.metadata.blockTimestamp!).getTime());
