@@ -1,8 +1,9 @@
+import { PredictData } from '../types/predict.type';
 import { alchemy } from '../utils/alchemy';
 import { AssetTransfersCategory, SortingOrder } from 'alchemy-sdk';
-import { anthropic } from '../utils/anthropic';
+import { spawn } from 'child_process';
 import logger from '../utils/logger';
-import { createReport } from './report.service';
+import { ethers } from 'ethers';
 
 export const getBlockNo = async () => {
   const block = await alchemy.core.getBlockNumber();
@@ -30,119 +31,219 @@ export const createTransaction = async (transaction: any) => {
   return transaction;
 };
 
-export const analyzeTransaction = async (
-  hash: string,
-  type: string,
-  writeStream: (data: string) => void,
-  endStream: () => void,
-) => {
-  logger.info(`Analyzing transaction with hash: ${hash}`);
-  const transaction = await alchemy.core.getTransaction(hash);
-  const receipt = await alchemy.core.getTransactionReceipt(hash);
-
-  if (!transaction || !receipt) {
-    writeStream('Transaction not found or invalid.');
-    endStream();
-    return;
+export const predict = async (address: string): Promise<any> => {
+  if (!address || !ethers.isAddress(address)) {
+    return Promise.reject(new Error('Invalid address'));
   }
+  const predictData: PredictData = await analyzeAddress(address);
+  return new Promise((resolve, reject) => {
+    const process = spawn('python', ['machine-learning/predict.py', JSON.stringify([predictData])]);
 
-  const transactionDetails = {
-    ...transaction,
-    ...receipt,
-  };
+    let stdout = '';
+    let stderr = '';
 
-  const prompt = `Please provide a detailed blockchain forensics **${type}** report for the following Ethereum transaction:
-    ${JSON.stringify(transactionDetails)}
-
-    Required Analysis Points:
-    - Transaction Overview
-      • Basic transaction metadata (hash, block, timestamp)
-      • Value transferred (ETH and USD equivalent at time of transaction)
-      • Gas usage and costs
-      • Transaction type (regular transfer, contract interaction, token transfer, etc.)
-
-    - Participant Analysis 
-      • Sender address profile and history
-      • Recipient address profile and history
-      • Any known entity associations or labels
-      • Historical interactions between participants
-      • Wallet behaviors and patterns
-
-    - Technical Details
-      • Input data decoding and method identification 
-      • Contract interactions and state changes
-      • Token transfers and balances impacted
-      • Gas optimizations or anomalies
-      • MEV implications if applicable
-
-    - Context & Impact
-      • Market conditions at time of transaction
-      • Part of larger transaction patterns/flows
-      • Financial impact analysis
-      • Network impact assessment
-      • Precedent transactions of similar nature
-
-    - Risk Assessment
-      • Association with known malicious actors
-      • Unusual patterns or deviations
-      • Compliance and regulatory considerations
-      • Signs of potential market manipulation
-      • Security implications
-
-    - Conclusions
-      • Primary purpose determination
-      • Notable findings summary
-      • Recommended follow-up actions
-      • Risk mitigation suggestions if applicable
-
-    Format requirements:
-    - You are free to add any additional sections or insights
-    - Use clear hierarchical markdown headings
-    - Include relevant blockchain explorer links
-    - Quantify impacts where possible
-    - Flag confidence levels for analytical conclusions
-    - Maintain neutral, technical tone
-    - Focus on empirical evidence over speculation
-    - Note any limitations in the analysis
-    - Exclude raw JSON/data dumps unless relevant
-  `;
-  logger.info(`Prompt for analysis: ${prompt}`);
-
-  try {
-    const anthropicStream = anthropic.messages.stream({
-      messages: [{ role: 'user', content: prompt }],
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 200,
-      stream: true,
+    process.stdout.on('data', (data) => {
+      const output = data.toString();
+      stdout += output;
+      logger.info(`Python stdout: ${output}`); // Log stdout
     });
 
-    let response = '';
-
-    anthropicStream.on('text', (chunk: string) => {
-      response += chunk;
-      logger.info(`Received chunk: ${chunk}`);
-      writeStream(chunk);
+    process.stderr.on('data', (data) => {
+      const errorOutput = data.toString();
+      stderr += errorOutput;
+      logger.error(`Python stderr: ${errorOutput}`); // Log stderr
     });
 
-    anthropicStream.on('end', () => {
-      logger.info('Streaming completed');
-      createReport({
-        title: `Blockchain Report for Transaction: ${hash}`,
-        type: type,
-        content: response,
-        status: 'Pending',
-      });
-      endStream();
+    process.on('close', (code) => {
+      if (code !== 0) {
+        logger.error(`Process exited with code ${code}`);
+        logger.error(`stderr: ${stderr}`);
+        return reject(new Error(stderr));
+      }
+      try {
+        const result = JSON.parse(stdout);
+        resolve(result[0]);
+      } catch (error: any) {
+        logger.error(`JSON parse error: ${error.message}`);
+        reject(error);
+      }
     });
-
-    anthropicStream.on('error', (error: any) => {
-      logger.error(`Error from Anthropics: ${error}`);
-      writeStream('Error during analysis.');
-      endStream();
-    });
-  } catch (error: any) {
-    logger.error(`Unexpected error: ${error.message}`);
-    writeStream('Unexpected error during analysis.');
-    endStream();
-  }
+  });
 };
+
+async function analyzeAddress(address: string): Promise<PredictData> {
+    try {
+        // Initialize data structure
+        const analysis: PredictData = {
+            Address: address,
+            Avg_min_between_received_tnx: 0,
+            Avg_min_between_sent_tnx: 0,
+            Time_Diff_between_first_and_last_Mins: 0,
+            Sent_tnx: 0,
+            Received_Tnx: 0,
+            Number_of_Created_Contracts: 0,
+            Average_of_Unique_Received_From_Addresses: 0,
+            Average_of_Unique_Sent_To_Addresses: 0,
+            min_value_received: 0,
+            max_value_received: 0,
+            avg_val_received: 0,
+            min_val_sent: 0,
+            max_val_sent: 0,
+            avg_val_sent: 0,
+            total_transactions_including_tnx_to_create_contract: 0,
+            total_Ether_sent: 0,
+            total_ether_received: 0,
+            total_ether_balance: 0,
+            Total_ERC20_tnxs: 0,
+            ERC20_total_Ether_received: 0,
+            ERC20_total_ether_sent: 0,
+            ERC20_total_Ether_sent_contract: 0,
+            ERC20_uniq_sent_addr: 0,
+            ERC20_uniq_rec_addr: 0,
+            ERC20_uniq_sent_addr_1: 0,
+            ERC20_uniq_rec_contract_addr: 0,
+            ERC20_uniq_sent_token_name: 0,
+            ERC20_uniq_rec_token_name: 0,
+            ERC20_most_sent_token_type: null,
+            ERC20_most_rec_token_type: null
+        };
+
+        // Get normal transactions with metadata
+        const [sentTxs, receivedTxs] = await Promise.all([
+            alchemy.core.getAssetTransfers({
+                fromAddress: address,
+                category: [AssetTransfersCategory.EXTERNAL],
+                withMetadata: true
+            }),
+            alchemy.core.getAssetTransfers({
+                toAddress: address,
+                category: [AssetTransfersCategory.EXTERNAL],
+                withMetadata: true
+            })
+        ]);
+
+        // Get ERC20 transactions with metadata
+        const [sentERC20Txs, receivedERC20Txs] = await Promise.all([
+            alchemy.core.getAssetTransfers({
+                fromAddress: address,
+                category: [AssetTransfersCategory.ERC20],
+                withMetadata: true
+            }),
+            alchemy.core.getAssetTransfers({
+                toAddress: address,
+                category: [AssetTransfersCategory.ERC20],
+                withMetadata: true
+            })
+        ]);
+
+        // Process normal transactions
+        if (sentTxs.transfers.length > 0) {
+            const sentValues = sentTxs.transfers.map(tx => Number(tx.value || 0));
+            analysis.Sent_tnx = sentTxs.transfers.length;
+            analysis.min_val_sent = Math.min(...sentValues);
+            analysis.max_val_sent = Math.max(...sentValues);
+            analysis.avg_val_sent = sentValues.reduce((a, b) => a + b, 0) / sentValues.length;
+            analysis.total_Ether_sent = sentValues.reduce((a, b) => a + b, 0);
+
+            // Calculate average time between sent transactions
+            const sentTimes = sentTxs.transfers
+                .filter(tx => tx.metadata.blockTimestamp)
+                .map(tx => new Date(tx.metadata.blockTimestamp!).getTime());
+            if (sentTimes.length > 1) {
+                const timeDiffs = [];
+                for (let i = 1; i < sentTimes.length; i++) {
+                    timeDiffs.push((sentTimes[i] - sentTimes[i-1]) / (1000 * 60)); // Convert to minutes
+                }
+                analysis.Avg_min_between_sent_tnx = timeDiffs.reduce((a, b) => a + b, 0) / timeDiffs.length;
+            }
+        }
+
+        // Process received transactions
+        if (receivedTxs.transfers.length > 0) {
+            const receivedValues = receivedTxs.transfers.map(tx => Number(tx.value || 0));
+            analysis.Received_Tnx = receivedTxs.transfers.length;
+            analysis.min_value_received = Math.min(...receivedValues);
+            analysis.max_value_received = Math.max(...receivedValues);
+            analysis.avg_val_received = receivedValues.reduce((a, b) => a + b, 0) / receivedValues.length;
+            analysis.total_ether_received = receivedValues.reduce((a, b) => a + b, 0);
+
+            // Calculate average time between received transactions
+            const receivedTimes = receivedTxs.transfers
+                .filter(tx => tx.metadata.blockTimestamp)
+                .map(tx => new Date(tx.metadata.blockTimestamp!).getTime());
+            if (receivedTimes.length > 1) {
+                const timeDiffs = [];
+                for (let i = 1; i < receivedTimes.length; i++) {
+                    timeDiffs.push((receivedTimes[i] - receivedTimes[i-1]) / (1000 * 60)); // Convert to minutes
+                }
+                analysis.Avg_min_between_received_tnx = timeDiffs.reduce((a, b) => a + b, 0) / timeDiffs.length;
+            }
+        }
+
+        // Process ERC20 transactions
+        if (sentERC20Txs.transfers.length > 0 || receivedERC20Txs.transfers.length > 0) {
+            analysis.Total_ERC20_tnxs = sentERC20Txs.transfers.length + receivedERC20Txs.transfers.length;
+            
+            // Process sent ERC20 transactions
+            const sentTokens = new Set(sentERC20Txs.transfers.map(tx => tx.asset));
+            const sentAddresses = new Set(sentERC20Txs.transfers.map(tx => tx.to));
+            analysis.ERC20_uniq_sent_token_name = sentTokens.size;
+            analysis.ERC20_uniq_sent_addr = sentAddresses.size;
+            
+            // Process received ERC20 transactions
+            const receivedTokens = new Set(receivedERC20Txs.transfers.map(tx => tx.asset));
+            const receivedAddresses = new Set(receivedERC20Txs.transfers.map(tx => tx.from));
+            analysis.ERC20_uniq_rec_token_name = receivedTokens.size;
+            analysis.ERC20_uniq_rec_addr = receivedAddresses.size;
+
+            // Find most common tokens
+            const tokenCount = new Map<string, number>();
+            sentERC20Txs.transfers.forEach(tx => {
+                if (tx.asset) {
+                    tokenCount.set(tx.asset, (tokenCount.get(tx.asset) || 0) + 1);
+                }
+            });
+            analysis.ERC20_most_sent_token_type = [...tokenCount.entries()]
+                .sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+        }
+
+        // Get contract creation transactions
+        const contractTxs = await alchemy.core.getAssetTransfers({
+            fromAddress: address,
+            category: [AssetTransfersCategory.EXTERNAL],
+            excludeZeroValue: true,
+            withMetadata: true,
+        });
+
+        analysis.Number_of_Created_Contracts = contractTxs.transfers
+            .filter(tx => !tx.to)
+            .length;
+
+        // Calculate total transactions
+        analysis.total_transactions_including_tnx_to_create_contract = 
+            analysis.Sent_tnx + 
+            analysis.Received_Tnx + 
+            analysis.Number_of_Created_Contracts;
+
+        // Get current balance
+        const balance = await alchemy.core.getBalance(address);
+        analysis.total_ether_balance = Number(balance) / 1e18;
+
+        // Calculate time difference between first and last transaction
+        const allTxTimes = [...sentTxs.transfers, ...receivedTxs.transfers]
+            .filter(tx => tx.metadata.blockTimestamp)
+            .map(tx => new Date(tx.metadata.blockTimestamp!).getTime());
+        
+        if (allTxTimes.length > 1) {
+            const firstTx = Math.min(...allTxTimes);
+            const lastTx = Math.max(...allTxTimes);
+            analysis.Time_Diff_between_first_and_last_Mins = (lastTx - firstTx) / (1000 * 60);
+        }
+
+        return analysis;
+
+    } catch (error) {
+        logger.error('Error analyzing address:', error);
+        throw error;
+    }
+}

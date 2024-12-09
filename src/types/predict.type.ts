@@ -1,0 +1,33 @@
+export interface PredictData {
+  Address: string;
+  Avg_min_between_received_tnx: number;
+  Avg_min_between_sent_tnx: number;
+  Time_Diff_between_first_and_last_Mins: number;
+  Sent_tnx: number;
+  Received_Tnx: number;
+  Number_of_Created_Contracts: number;
+  Average_of_Unique_Received_From_Addresses: number;
+  Average_of_Unique_Sent_To_Addresses: number;
+  min_value_received: number;
+  max_value_received: number;
+  avg_val_received: number;
+  min_val_sent: number;
+  max_val_sent: number;
+  avg_val_sent: number;
+  total_transactions_including_tnx_to_create_contract: number;
+  total_Ether_sent: number;
+  total_ether_received: number;
+  total_ether_balance: number;
+  Total_ERC20_tnxs: number;
+  ERC20_total_Ether_received: number;
+  ERC20_total_ether_sent: number;
+  ERC20_total_Ether_sent_contract: number;
+  ERC20_uniq_sent_addr: number;
+  ERC20_uniq_rec_addr: number;
+  ERC20_uniq_sent_addr_1: number;
+  ERC20_uniq_rec_contract_addr: number;
+  ERC20_uniq_sent_token_name: number;
+  ERC20_uniq_rec_token_name: number;
+  ERC20_most_sent_token_type?: string | null;
+  ERC20_most_rec_token_type?: string | null;
+}
