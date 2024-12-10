@@ -48,34 +48,26 @@ def prepare_features(df):
     return features
 
 def predict(address_data: List[AddressData]):
-    # print("Loading model...")
     model = joblib.load("machine-learning/nn_model.pkl")
 
     try:
-        # print("Loading scaler...")
         scaler = joblib.load("machine-learning/scaler.pkl")
     except FileNotFoundError:
         print("Error: scaler.pkl not found. Please ensure the scaler was saved during training.")
         exit(1)
 
-    # print("Converting address data to DataFrame...")
     address_data_df = pd.DataFrame([data.model_dump() for data in address_data])
 
-    # print("Preparing features for prediction...")
     X_new = prepare_features(address_data_df)
 
-    # print("Reindexing features...")
     expected_features = scaler.feature_names_in_
     X_new = X_new.reindex(columns=expected_features, fill_value=0)
 
-    # print("Scaling features...")
     X_new_scaled = scaler.transform(X_new)
 
-    # print("Making predictions...")
     predictions = model.predict(X_new_scaled)
     prediction_proba = model.predict_proba(X_new_scaled)
 
-    # print("Creating results DataFrame...")
     results = pd.DataFrame({
         'Address': address_data_df['Address'],
         'Prediction': predictions,

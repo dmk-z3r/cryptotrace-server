@@ -134,6 +134,8 @@ todo.md
 Dockerfile.dev
 
 .ipynb_checkpoints/
-data.csv
+*.csv
 nn_model.pkl
 scaler.pkl
+
+test*.py
